@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requireProfile } from "@/lib/server/auth";
-import { LayoutDashboard, Link2, Users, Megaphone, LayoutGrid, Inbox, BarChart3, ScrollText, Settings } from "lucide-react";
+import { LayoutDashboard, Link2, Scissors, Users, Megaphone, LayoutGrid, Inbox, BarChart3, ScrollText, Settings } from "lucide-react";
 
 const NAV = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/links", label: "Links", icon: Link2 },
+  { href: "/admin/shorten", label: "Encurtar", icon: Scissors },
   { href: "/admin/partners", label: "Parceiros", icon: Users },
   { href: "/admin/campaigns", label: "Campanhas", icon: Megaphone },
   { href: "/admin/placements", label: "Posicionamentos", icon: LayoutGrid },

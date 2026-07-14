@@ -33,6 +33,18 @@ export function slugify(input: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+// Alfabeto para slugs curtos automáticos (sem caracteres ambíguos).
+const SHORT_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+
+/** Gera um slug curto aleatório (ex.: "k7m2xqp") para o encurtador. */
+export function generateShortSlug(len = 7): string {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  let out = "";
+  for (let i = 0; i < len; i++) out += SHORT_ALPHABET[bytes[i]! % SHORT_ALPHABET.length];
+  return out;
+}
+
 /** Valida um slug segundo as regras do documento. */
 export function validateSlug(slug: string): SlugValidation {
   if (!slug) return { valid: false, error: "Slug obrigatório." };
