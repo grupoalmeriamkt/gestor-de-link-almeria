@@ -20,19 +20,38 @@ export interface DashboardData extends MetricInputs {
 }
 
 /**
+ * Resolve os IDs de links dentro do escopo de campanha/parceiro.
+ * Retorna null quando não há filtro de escopo (não restringe).
+ */
+async function linkIdsForScope(
+  db: SupabaseClient<any, any, any>,
+  f: AnalyticsFilters,
+): Promise<string[] | null> {
+  if (!f.campaignId && !f.partnerId) return null;
+  let q = db.from("tracked_links").select("id");
+  if (f.campaignId) q = q.eq("campaign_id", f.campaignId);
+  if (f.partnerId) q = q.eq("partner_id", f.partnerId);
+  const { data } = await q;
+  return (data ?? []).map((r: { id: string }) => r.id);
+}
+
+/**
  * Conta eventos por nome, aplicando filtros. Usa o cliente com sessão do usuário
- * (RLS garante que apenas staff leia).
+ * (RLS garante que apenas staff leia). `scopeIds` restringe por campanha/parceiro.
  */
 async function countEvent(
   db: SupabaseClient<any, any, any>,
   eventName: string,
   f: AnalyticsFilters,
+  scopeIds: string[] | null,
 ): Promise<number> {
+  if (scopeIds && scopeIds.length === 0) return 0;
   let q = db.from("events").select("id", { count: "exact", head: true }).eq("event_name", eventName);
   if (!f.includeTest) q = q.eq("is_test", false);
   if (f.from) q = q.gte("created_at", f.from);
   if (f.to) q = q.lte("created_at", f.to);
   if (f.linkId) q = q.eq("tracked_link_id", f.linkId);
+  if (scopeIds) q = q.in("tracked_link_id", scopeIds);
   const { count } = await q;
   return count ?? 0;
 }
@@ -41,14 +60,16 @@ export async function getDashboardData(
   db: SupabaseClient<any, any, any>,
   f: AnalyticsFilters,
 ): Promise<DashboardData> {
+  const scopeIds = await linkIdsForScope(db, f);
+
   const [impressions, totalClicks, leads, whatsappRedirects, externalRedirects, conversions] =
     await Promise.all([
-      countEvent(db, "banner_impression", f),
-      countEvent(db, "link_clicked", f),
-      countEvent(db, "lead_submitted", f),
-      countEvent(db, "whatsapp_redirected", f),
-      countEvent(db, "external_redirected", f),
-      countEvent(db, "conversion_registered", f),
+      countEvent(db, "banner_impression", f, scopeIds),
+      countEvent(db, "link_clicked", f, scopeIds),
+      countEvent(db, "lead_submitted", f, scopeIds),
+      countEvent(db, "whatsapp_redirected", f, scopeIds),
+      countEvent(db, "external_redirected", f, scopeIds),
+      countEvent(db, "conversion_registered", f, scopeIds),
     ]);
 
   // Cliques para único/dia/dispositivo.
@@ -62,6 +83,7 @@ export async function getDashboardData(
   if (f.from) cq = cq.gte("clicked_at", f.from);
   if (f.to) cq = cq.lte("clicked_at", f.to);
   if (f.linkId) cq = cq.eq("tracked_link_id", f.linkId);
+  if (scopeIds) cq = cq.in("tracked_link_id", scopeIds);
   const { data: clicks } = await cq;
 
   const rows = clicks ?? [];
